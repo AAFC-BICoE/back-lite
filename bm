@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+#
+# Backup local & remote mysql databases, store backups and
+# checksums in a tar file, and store in central location,
+# organized by date
+
+config() {
+  ###########################################################
+  ###################### CONFIGURATION ######################
+  ###########################################################
+  # This method must set the following variables:
+  # * destRoot:
+  #       The root directory for backups to be stored
+  # * serverListFile:
+  #       The path to the file which lists the target servers.
+  #       The file is in the form "number.key value" (note
+  #       the space between key and value).  The number
+  #       indicates the server.  Lines beginning with '#' in
+  #       the serverListFile are ignored.  Possible keys are:
+  #         name:     Name to identify the server in logs, as
+  #                   well as in the name of the file for the
+  #                   backups (optional)
+  #         host:     Hostname of the mysql server
+  #         port:     Port on which to connect to the mysql
+  #                   server
+  #         user:     Username to connect to the mysql server
+  #         pass:     Password for the mysql server (optional)
+  #         preMysql: Anything put here will be inserted in the
+  #                   same line as the mysql and mysqldump
+  #                   commands.  This may be used to send the
+  #                   commands over ssh or some other shell
+  #                   (optional)
+  #         include:  A regular expression which matches
+  #                   the databases on the server to be
+  #                   included. (optional)
+  # * logLevel:
+  #       Integer from 1-4 which defines the verbosity
+  #       of the logging. Each level implies those below it.
+  #       Logging levels are:
+  #         1 [ERROR]: only log fatal errors
+  #         2  [WARN]: log warnings which may be recovered
+  #         3  [INFO]: log information about the main stages
+  #                    of the program's execution
+  #         4 [DEBUG]: log as much information about the
+  #                    execution and state as possible
+  # * mysqldump_args:
+  #       Arguments supplied to the mysqldump command
+  # * zipper:
+  #       Compression tool used for backups.  Must be set
+  #       to take input from stdin and output to stdout
+  # * zipperExt:
+  #       The filename extension associated with files
+  #       compressed with $zipper
+  # * hasher:
+  #       Hashing tool used on database backups.  Must take a
+  #       single file as an argument and output to stdout
+  # * hasherExt:
+  #       The filename extension associated with the hashing
+  #       algorithm used by $hasher
+  ###########################################################
+
+  destRoot="$HOME/backups"
+  serverListFile="$HOME/server_list"
+  logLevel=3
+  mysqldump_args="--opt
+                  --comments=0
+                  --compress
+                  --hex-blob
+                  --max-allowed-packet=1G
+                  --no-autocommit"
+  zipper="bzip2 -c"
+  zipperExt="bz2"
+
+  hasher="md5sum"
+  hasherExt="md5"
+}
+
+verifyConfig() {
+  [ $logLevel -le 4 ] && [ $logLevel -ge 1 ] \
+    || logLevel=4 err "log level not in [1-4]"
+
+  [ -d "$destRoot" ] \
+    || err "config validation error: $destRoot is not a directory"
+
+  [ -w "$destRoot" ] \
+    || err "config validation error: $destroot is not writable"
+
+  [ -r "$serverListFile" ] \
+    || err "config validation error: $serverListFile is not a readable file"
+
+  command -v "${zipper%% *}" &> /dev/null \
+    || err "config validation error: '$zipper' not found"
+
+  command -v "${hasher%% *}" &> /dev/null \
+    || err "config validation error: '$hasher' not found"
+}
+
+init() {
+  config
+  verifyConfig
+  [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
+  numberOfServers=$(cut -f1 -d. "$serverListFile" \
+                      | sed '/^\s*\#/d' \
+                      | sort -n \
+                      | uniq \
+                      | tail -1)
+
+  log 4 "destRoot=$destRoot"
+  log 4 "serverListFile=$serverListFile"
+  log 4 "mysqldump_args=$mysqldump_args"
+  log 4 "zipper=$zipper"
+  log 4 "zipperExt=$zipperExt"
+  log 4 "hasher=$hasher"
+  log 4 "hasherExt=$hasherExt"
+  log 4 "numberOfServers=$numberOfServers"
+}
+
+backupDB() {
+  local readonly dbName="$1"
+  local readonly dumpfile="${dbName}.sql.$zipperExt"
+
+  log 3 "dumping & compressing database $dbName"
+  $preMysql mysqldump $mysqldump_args "$dbName" | $zipper > "$dumpfile" \
+    || err "error creating database backup"
+
+  log 3 "creating checksum of database $dbName"
+  $hasher "$dumpfile" > "${dumpfile}.$hasherExt" \
+    || err "error hashing backup $dumpfile"
+}
+
+log() {
+  [[ $1 -le $logLevel ]] || return 0
+
+  local readonly timestamp="$(date +'[%D] [%T]')"
+  local readonly prelog
+  case "$1" in
+    1) prelog='[ERROR]' ;;
+    2) prelog='[WARN] ' ;;
+    3) prelog='[INFO] ' ;;
+    4) prelog='[DEBUG]' ;;
+    *) err "invalid log level: $1" ;;
+  esac
+  echo "$prelog $timestamp $2" > /dev/stderr
+}
+
+err() {
+  log 1 "$1"
+  exit 1
+}
+
+getDBList() {
+  log 4 "getting database list for server $serverName"
+  dbList="$(echo show databases | $preMysql mysql $v $commonMysqlArgs -BN)" \
+    || err "error connecting to server $serverName"
+
+  for line in $dbList; do
+    [[ $line =~ $include ]] \
+      && echo "$line"
+  done
+}
+
+parseLine() {
+  local readonly num="$1"
+  local readonly field="$2"
+  grep "${num}.${field}" "$serverListFile" \
+    | sed '/^\s*\#/d' \
+    | sort -n \
+    | head -1 \
+    | cut -d' ' -f2-
+}
+
+parseServerList() {
+  serverName="$(parseLine "$1" name)"
+  mysqlUser="$(parseLine "$1" user)"
+  mysqlPass="$(parseLine "$1" pass)"
+  mysqlHost="$(parseLine "$1" host)"
+  mysqlPort="$(parseLine "$1" port)"
+  preMysql="$(parseLine "$1" preMysql)"
+  include="$(parseLine "$1" include)"
+
+  include=${include:-'^.*$'} # include all if omitted
+  serverName=${serverName:-"$1:$mysqlHost:$mysqlPort"}
+
+  log 4 "serverName=$serverName"
+  log 4 "mysqlUser=$mysqlUser"
+  log 4 "mysqlPass=${#mysqlPass} chars" # give count of characters for password
+  log 4 "mysqlHost=$mysqlHost"
+  log 4 "mysqlPort=$mysqlPort"
+  log 4 "preMysql=$preMysql"
+  log 4 "include=$include"
+
+  [ -n "$mysqlUser" ] && [ -n "$mysqlPort" ] && [ -n "$mysqlHost" ] \
+    || err "server $1 is missing mandatory fields"
+}
+
+main() {
+  init
+  log 3 "[BACKUPS START]"
+
+  destDir="$destRoot/$(date +%Y)/$(date +%m)"
+  mkdir $v -p "$destDir" || err "couldn't access backups directory"
+  log 3 "destination directory for backups is $destDir"
+
+  for i in {1..128}; do
+    [[ $i -le $numberOfServers ]] || break
+    log 3 "[BACKUP $i START]"
+    parseServerList $i
+    log 3 "parsed config for server: $serverName"
+
+    workdir="$(mktemp -d)"
+    log 4 "workspace for server $serverName is $workdir"
+    cd "$workdir" \
+      || err "$workdir can't be accessed"
+
+    commonMysqlArgs="--user=$mysqlUser
+                     --password=$mysqlPass
+                     --host=$mysqlHost
+                     --port=$mysqlPort"
+
+    dbList="$(getDBList)"
+    log 3 "target databases are: $(echo "$dbList" | tr '\n' ' ')"
+
+    mysqldump_args="$mysqldump_args $commonMysqlArgs $v"
+    for db in $dbList; do
+      log 3 "starting backup process for $db"
+      backupDB "$db"
+    done
+
+    destFile="$destDir/mysql_backup_${serverName}_$(date +'%y_%m_%d').tar"
+    if [[ -f $destFile ]]; then
+      log 2 "destination file $destFile already exists"
+      tag=0
+      initialName="$destFile"
+      while [ -f "$destFile" ]; do
+        tag=$(( tag + 1 ))
+        destFile="${initialName%.tar}-($tag).tar"
+        log 4 "trying destination file name: $destFile"
+      done
+    fi
+
+    log 3 "storing backups for $serverName in file: $destFile"
+
+    tar $v -c ./* > "$destFile" \
+      || err "error creating tar file $destFile"
+
+    log 4 "deleting temporary workspace: $workdir"
+    cd - > /dev/null
+    rm $v -rf "$workdir"
+
+    log 3 "[BACKUP $i DONE]"
+  done
+  log 3 "[BACKUPS DONE]"
+}
+
+main
