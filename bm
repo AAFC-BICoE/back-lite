@@ -129,18 +129,19 @@ backupDB() {
 }
 
 log() {
-  [[ $1 -le $logLevel ]] || return 0
+  local readonly lvl=$1
+  local readonly msg=$2
+  [[ $lvl -le $logLevel ]] || return 0
 
   local readonly timestamp="$(date +'[%D] [%T]')"
-  local readonly prelog
-  case "$1" in
-    1) prelog='[ERROR]' ;;
-    2) prelog='[WARN] ' ;;
-    3) prelog='[INFO] ' ;;
-    4) prelog='[DEBUG]' ;;
-    *) err "invalid log level: $1" ;;
+  case "$lvl" in
+    1) prelog='[ERR!]' ;;
+    2) prelog='[WARN]' ;;
+    3) prelog='[INFO]' ;;
+    4) prelog='[DEBG]' ;;
+    *) err "invalid log level: $lvl" ;;
   esac
-  echo "$prelog $timestamp $2" > /dev/stderr
+  echo "$prelog $timestamp $msg" > /dev/stderr
 }
 
 err() {
