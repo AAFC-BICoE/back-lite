@@ -60,14 +60,8 @@ config() {
   ###########################################################
 
   destRoot="$HOME/backups"
-  serverListFile="$HOME/server_list"
+  serverListDir="$HOME/server_list"
   logLevel=3
-  mysqldump_args="--opt
-                  --comments=0
-                  --compress
-                  --hex-blob
-                  --max-allowed-packet=1G
-                  --no-autocommit"
   zipper="bzip2 -c"
   zipperExt="bz2"
 
@@ -90,11 +84,11 @@ verifyConfig() {
   [ -w "$destRoot" ] \
     || err "$msgPrefix $destroot is not writable"
 
-  [ -n "$serverListFile" ] \
-    || err "$msgPrefix \$serverListFile not set"
+  [ -n "$serverListDir" ] \
+    || err "$msgPrefix \$serverListDir not set"
 
-  [ -r "$serverListFile" ] \
-    || err "$msgPrefix $serverListFile is not readable"
+  [ -d "$serverListDir" ] \
+    || err "$msgPrefix $serverListDir is not a directory"
 
   [ -n "$zipper" ] \
     || err "$msgPrefix \$zipper not set"
@@ -121,8 +115,7 @@ init() {
   [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
 
   log 4 "destRoot=$destRoot"
-  log 4 "serverListFile=$serverListFile"
-  log 4 "mysqldump_args=$mysqldump_args"
+  log 4 "serverListDir=$serverListDir"
   log 4 "zipper=$zipper"
   log 4 "zipperExt=$zipperExt"
   log 4 "hasher=$hasher"
@@ -147,7 +140,7 @@ log() {
   local readonly msg=$2
   [[ $lvl -le $logLevel ]] || return 0
 
-  local readonly timestamp="$(date +'[%D] [%T]')"
+  local readonly timestamp=$(date +'[%D] [%T]')
   case "$lvl" in
     1) prelog='[ERR!]' ;;
     2) prelog='[WARN]' ;;
@@ -174,13 +167,15 @@ getDBList() {
   done
 }
 
-parseServerList() {
+parseServerFile() {
   readonly targetFile="$1"
-  serverName=${targetFile##*/}
   while read line; do
-    key=${line%%=*}
-    val=${line#*=}
-    case key in
+    local readonly commentPattern='^\s*\#.*'
+    [[ $line =~ $commentPattern ]] && continue
+
+    local key=${line%%=*} 
+    local val=${line#*=}
+    case "$key" in
       type) targetType=$val ;;
       host) targetHost=$val ;;
       user) targetUser=$val ;;
@@ -189,10 +184,18 @@ parseServerList() {
       include) include=$val ;;
       pre_cmd) pre_cmd=$val ;;
     esac
-  done < "$targetfile"
+    log 4 "$key=$val"
+  done < "$targetFile"
 }
 
 mysqlBackup() {
+  mysqldumpArgs="--opt
+                 --comments=0
+                 --compress
+                 --hex-blob
+                 --max-allowed-packet=1G
+                 --no-autocommit"
+
   commonMysqlArgs="--user=$targetUser
                    --password=$targetPass
                    --host=$targetHost
@@ -201,11 +204,27 @@ mysqlBackup() {
   dbList="$(getDBList)"
   log 3 "target databases are: $(echo "$dbList" | tr '\n' ' ')"
 
-  mysqldump_args="$mysqldump_args $commonMysqlArgs $v"
+  mysqldump_args="$mysqldumpArgs $commonMysqlArgs $v"
   for db in $dbList; do
     log 3 "starting backup process for $db"
     backupDB "$db"
   done
+}
+
+getDestFile() {
+  destFile="$destDir/${targetType}_backup_${serverName}_$(date +%y_%m_%d).tar"
+  if [[ -f $destFile ]]; then
+    log 2 "destination file $destFile already exists"
+    local tag=0
+    initialName="$destFile"
+    while [ -f "$destFile" ]; do
+      tag=$(( tag + 1 ))
+      destFile="${initialName%.tar}-${tag}.tar"
+      log 4 "trying destination file name: $destFile"
+    done
+  fi
+
+  log 3 "storing backups for $serverName in file: $destFile"
 }
 
 main() {
@@ -217,8 +236,10 @@ main() {
   log 3 "destination directory for backups is $destDir"
 
   for serverFile in $serverListDir/*; do
-    log 3 "[BACKUP $serverName START]"
-    parseServerList "$serverFile"
+    serverName=${serverFile##*/}
+    log 3 "[BACKUP START: $serverName]"
+    
+    parseServerFile "$serverFile"
     log 3 "parsed config for server: $serverName"
 
     workdir=$(mktemp -d)
@@ -227,23 +248,11 @@ main() {
       || err "$workdir can't be accessed"
 
     #TODO: add case for other backup types eg. directories, other dbms's, etc.
-    case $targetType in
+    case "$targetType" in
       mysql) mysqlBackup ;;
     esac
 
-    destFile="$destDir/${targetType}_backup_${serverName}_$(date +'%y_%m_%d').tar"
-    if [[ -f $destFile ]]; then
-      log 2 "destination file $destFile already exists"
-      tag=0
-      initialName="$destFile"
-      while [ -f "$destFile" ]; do
-        tag=$(( tag + 1 ))
-        destFile="${initialName%.tar}-${tag}.tar"
-        log 4 "trying destination file name: $destFile"
-      done
-    fi
-
-    log 3 "storing backups for $serverName in file: $destFile"
+    getDestFile
 
     tar $v -c ./* > "$destFile" \
       || err "error creating tar file $destFile"
@@ -252,7 +261,7 @@ main() {
     cd - > /dev/null
     rm $v -rf "$workdir"
 
-    log 3 "[BACKUP $serverName DONE]"
+    log 3 "[BACKUP DONE: $serverName]"
   done
   log 3 "[BACKUPS DONE]"
 }
