@@ -76,23 +76,43 @@ config() {
 }
 
 verifyConfig() {
+  local readonly msgPrefix="config validation error:"
+
   [ $logLevel -le 4 ] && [ $logLevel -ge 1 ] \
     || logLevel=4 err "log level not in [1-4]"
 
+  [ -n "$destRoot" ] \
+    || err "$msgPrefix \$destRoot not set"
+
   [ -d "$destRoot" ] \
-    || err "config validation error: $destRoot is not a directory"
+    || err "$msgPrefix $destRoot is not a directory"
 
   [ -w "$destRoot" ] \
-    || err "config validation error: $destroot is not writable"
+    || err "$msgPrefix $destroot is not writable"
+
+  [ -n "$serverListFile" ] \
+    || err "$msgPrefix \$serverListFile not set"
 
   [ -r "$serverListFile" ] \
-    || err "config validation error: $serverListFile is not a readable file"
+    || err "$msgPrefix $serverListFile is not readable"
+
+  [ -n "$zipper" ] \
+    || err "$msgPrefix \$zipper not set"
+
+  [ -n "$zipperExt" ] \
+    || err "$msgPrefix \$zipperExt not set"
 
   command -v "${zipper%% *}" &> /dev/null \
-    || err "config validation error: '$zipper' not found"
+    || err "$msgPrefix command '$zipper' not found"
+
+  [ -n "$hasher" ] \
+    || err "$msgPrefix \$hasher not set"
+
+  [ -n "$hasherExt" ] \
+    || err "$msgPrefix \$hasherExt not set"
 
   command -v "${hasher%% *}" &> /dev/null \
-    || err "config validation error: '$hasher' not found"
+    || err "$msgPrefix command '$hasher' not found"
 }
 
 init() {
@@ -171,16 +191,17 @@ parseLine() {
 }
 
 parseServerList() {
-  serverName="$(parseLine "$1" name)"
-  mysqlUser="$(parseLine "$1" user)"
-  mysqlPass="$(parseLine "$1" pass)"
-  mysqlHost="$(parseLine "$1" host)"
-  mysqlPort="$(parseLine "$1" port)"
-  preMysql="$(parseLine "$1" preMysql)"
-  include="$(parseLine "$1" include)"
+  local readonly serverNum=$1
+  serverName="$(parseLine "$serverNum" name)"
+  mysqlUser="$(parseLine "$serverNum" user)"
+  mysqlPass="$(parseLine "$serverNum" pass)"
+  mysqlHost="$(parseLine "$serverNum" host)"
+  mysqlPort="$(parseLine "$serverNum" port)"
+  preMysql="$(parseLine "$serverNum" preMysql)"
+  include="$(parseLine "$serverNum" include)"
 
   include=${include:-'^.*$'} # include all if omitted
-  serverName=${serverName:-"$1:$mysqlHost:$mysqlPort"}
+  serverName=${serverName:-"$serverNum:$mysqlHost:$mysqlPort"}
 
   log 4 "serverName=$serverName"
   log 4 "mysqlUser=$mysqlUser"
@@ -191,7 +212,7 @@ parseServerList() {
   log 4 "include=$include"
 
   [ -n "$mysqlUser" ] && [ -n "$mysqlPort" ] && [ -n "$mysqlHost" ] \
-    || err "server $1 is missing mandatory fields"
+    || err "server $serverNum is missing mandatory fields"
 }
 
 mysqlBackup() {
@@ -214,7 +235,7 @@ main() {
   init
   log 3 "[BACKUPS START]"
 
-  destDir="$destRoot/$(date +%Y)/$(date +%m)"
+  destDir=$destRoot/$(date +%Y)/$(date +%m)
   mkdir $v -p "$destDir" || err "couldn't access backups directory"
   log 3 "destination directory for backups is $destDir"
 
@@ -224,7 +245,7 @@ main() {
     parseServerList $i
     log 3 "parsed config for server: $serverName"
 
-    workdir="$(mktemp -d)"
+    workdir=$(mktemp -d)
     log 4 "workspace for server $serverName is $workdir"
     cd "$workdir" \
       || err "$workdir can't be accessed"
@@ -238,7 +259,7 @@ main() {
       initialName="$destFile"
       while [ -f "$destFile" ]; do
         tag=$(( tag + 1 ))
-        destFile="${initialName%.tar}-($tag).tar"
+        destFile="${initialName%.tar}-${tag}.tar"
         log 4 "trying destination file name: $destFile"
       done
     fi
