@@ -193,6 +193,22 @@ parseServerList() {
     || err "server $1 is missing mandatory fields"
 }
 
+mysqlBackup() {
+  commonMysqlArgs="--user=$mysqlUser
+                   --password=$mysqlPass
+                   --host=$mysqlHost
+                   --port=$mysqlPort"
+
+  dbList="$(getDBList)"
+  log 3 "target databases are: $(echo "$dbList" | tr '\n' ' ')"
+
+  mysqldump_args="$mysqldump_args $commonMysqlArgs $v"
+  for db in $dbList; do
+    log 3 "starting backup process for $db"
+    backupDB "$db"
+  done
+}
+
 main() {
   init
   log 3 "[BACKUPS START]"
@@ -212,19 +228,7 @@ main() {
     cd "$workdir" \
       || err "$workdir can't be accessed"
 
-    commonMysqlArgs="--user=$mysqlUser
-                     --password=$mysqlPass
-                     --host=$mysqlHost
-                     --port=$mysqlPort"
-
-    dbList="$(getDBList)"
-    log 3 "target databases are: $(echo "$dbList" | tr '\n' ' ')"
-
-    mysqldump_args="$mysqldump_args $commonMysqlArgs $v"
-    for db in $dbList; do
-      log 3 "starting backup process for $db"
-      backupDB "$db"
-    done
+    mysqlBackup
 
     destFile="$destDir/mysql_backup_${serverName}_$(date +'%y_%m_%d').tar"
     if [[ -f $destFile ]]; then
