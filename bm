@@ -181,15 +181,16 @@ getDBList() {
 }
 
 parseLine() {
-  local readonly num="$1"
-  local readonly field="$2"
-  grep "${num}.${field}" "$serverListFile" \
+  local readonly num=$1
+  local readonly key=$2
+  grep "${num}.${key}" "$serverListFile" \
     | sed '/^\s*\#/d' \
     | sort -n \
     | head -1 \
     | cut -d' ' -f2-
 }
 
+#TODO: change serverListFile parsing to use readline rather than grep
 parseServerList() {
   local readonly serverNum=$1
   serverName="$(parseLine "$serverNum" name)"
@@ -250,6 +251,7 @@ main() {
     cd "$workdir" \
       || err "$workdir can't be accessed"
 
+    #TODO: add case for other backup types eg. directories, other dbms's, etc.
     mysqlBackup
 
     destFile="$destDir/mysql_backup_${serverName}_$(date +'%y_%m_%d').tar"
