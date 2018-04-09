@@ -61,22 +61,24 @@ init() {
 }
 
 backupDB() {
-  local readonly dbName="$1"
-  local readonly dumpFile="${dbName}.sql"
+  local dbName="$1"
+  local dumpFile="${dbName}.sql"
+  local dumpFile_z="${dumpFile}.$zipperExt"
+  local dumpFile_h="${dumpFile_z}.$hasherExt"
 
   log 3 "dumping database: $dbName"
-  $pre_cmd mysqldump $mysqldump_args "$dbName" > "$dumpFile" \
-    || err "error creating database backup"
+  $pre_cmd mysqldump $mysqldumpArgs "$dbName" > "$dumpFile" \
+    || err "error creating database backup $dumpFile"
 
   log 3 "compressing database dump: $dbName"
-  $zipper "$dumpFile" > "${dumpFile}.$zipperExt" \
-    || err "error compressing database dump"
+  $zipper "$dumpFile" > "$dumpFile_z" \
+    || err "error creating compressed dump $dumpFile_z"
 
   rm $v "$dumpFile"
 
   log 3 "creating checksum of database backup: $dbName"
-  $hasher "${dumpFile}.$zipperExt" > "${dumpFile}.${zipperExt}.$hasherExt" \
-    || err "error hashing backup $dumpFile"
+  $hasher "$dumpFile_z" > "$dumpFile_h" \
+    || err "error creating checksum $dumpFile_h"
 }
 
 log() {
@@ -101,11 +103,10 @@ err() {
 }
 
 parseServerFile() {
-  local readonly targetFile="$1"
-  while read line; do
-    line=$(echo $line | tr -s '[:blank:]')
-    local readonly commentPattern='^\s*\#.*'
-    [[ $line =~ $commentPattern ]] && continue
+  local targetFile="$1"
+  while read ln; do
+    local line=$(echo "$ln" | tr -s '[:blank:]')
+    [[ $line == \#* ]] && continue # support comments in target files
 
     local key=${line%% =*}
     local val=${line#*= }
@@ -129,17 +130,16 @@ mysqlBackup() {
                  --compress
                  --hex-blob
                  --max-allowed-packet=1G
-                 --no-autocommit"
-
-  commonMysqlArgs="--user=$targetUser
-                   --password=$targetPass
-                   --host=$targetHost
-                   --port=$targetPort"
+                 --no-autocommit
+                 --user=$targetUser
+                 --password=$targetPass
+                 --host=$targetHost
+                 --port=$targetPort
+                 $v"
 
   dbList=($include)
   log 3 "target databases are: $include"
 
-  mysqldump_args="$mysqldumpArgs $commonMysqlArgs $v"
   for db in "${dbList[@]}"; do
     log 3 "starting backup process for $db"
     backupDB "$db"
@@ -149,24 +149,26 @@ mysqlBackup() {
 filesBackup() {
   log 3 "starting backup process for $serverName"
   log 3 "target files/directories are: $include"
-  dumpFile=${serverName}.tar
+  local dumpFile=${serverName}.tar
+  local dumpFile_z=${dumpFile}.$zipperExt
+  local dumpFile_h=${dumpFile_z}.$hasherExt
   
   $pre_cmd tar $tar_arg $v -c $include > "$dumpFile" \
     || err "error creating files backup for $serverName"
 
   log 3 "compressing files backup $serverName"
-  $zipper "$dumpFile" > "${dumpFile}.$zipperExt" \
+  $zipper "$dumpFile" > "$dumpFile_z" \
     || err "error compressing backup file for $serverName"
 
   rm $v "$dumpFile"
 
   log 3 "creating checksum for $serverName"
-  $hasher "${dumpFile}.$zipperExt" > "${dumpFile}.${zipperExt}.$hasherExt" \
+  $hasher "$dumpFile_z" > "$dumpFile_h" \
     || err "error creating checksum for $serverName"
 }
 
 getDestFile() {
-  destFile="$destDir/${targetType}_backup_${serverName}_$(date +%y_%m_%d).tar"
+  local destFile="$destDir/${targetType}_backup_${serverName}_$(date +%y_%m_%d).tar"
   if [[ -f $destFile ]]; then
     log 2 "destination file $destFile already exists"
     local tag=0
@@ -178,7 +180,7 @@ getDestFile() {
     done
   fi
 
-  log 3 "storing backups for $serverName in file: $destFile"
+  echo "$destFile"
 }
 
 main() {
@@ -201,7 +203,8 @@ main() {
     cd "$workdir" \
       || err "$workdir can't be accessed"
 
-    getDestFile
+    destFile=$(getDestFile)
+    log 3 "storing backups for $serverName in file: $destFile"
 
     case $targetType in
       mysql) (mysqlBackup) ;;
@@ -218,7 +221,7 @@ main() {
 
     log 3 "[BACKUP DONE: $serverName]"
   done
-  log 3 "[BACKUPS DONE]"
+  log 3 "[BACKUPS DONE]"; echo
 }
 
 main &>> "${LOG:-/dev/stderr}"
