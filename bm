@@ -62,15 +62,21 @@ init() {
 
 backupDB() {
   local readonly dbName="$1"
-  local readonly dumpfile="${dbName}.sql.$zipperExt"
+  local readonly dumpFile="${dbName}.sql"
 
-  log 3 "dumping & compressing database $dbName"
-  $pre_cmd mysqldump $mysqldump_args "$dbName" | $zipper > "$dumpfile" \
+  log 3 "dumping database: $dbName"
+  $pre_cmd mysqldump $mysqldump_args "$dbName" > "$dumpFile" \
     || err "error creating database backup"
 
-  log 3 "creating checksum of database $dbName"
-  $hasher "$dumpfile" > "${dumpfile}.$hasherExt" \
-    || err "error hashing backup $dumpfile"
+  log 3 "compressing database dump: $dbName"
+  $zipper "$dumpFile" > "${dumpFile}.$zipperExt" \
+    || err "error compressing database dump"
+
+  rm $v "$dumpFile"
+
+  log 3 "creating checksum of database backup: $dbName"
+  $hasher "${dumpFile}.$zipperExt" > "${dumpFile}.${zipperExt}.$hasherExt" \
+    || err "error hashing backup $dumpFile"
 }
 
 log() {
@@ -95,14 +101,15 @@ err() {
 }
 
 parseServerFile() {
-  readonly targetFile="$1"
+  local readonly targetFile="$1"
   while read line; do
+    line=$(echo $line | tr -s '[:blank:]')
     local readonly commentPattern='^\s*\#.*'
     [[ $line =~ $commentPattern ]] && continue
 
-    local key=${line%%=*} 
-    local val=${line#*=}
-    case "$key" in
+    local key=${line%% =*}
+    local val=${line#*= }
+    case $key in
       type) targetType=$val ;;
       host) targetHost=$val ;;
       user) targetUser=$val ;;
@@ -110,6 +117,7 @@ parseServerFile() {
       port) targetPort=$val ;;
       include) include=$val ;;
       pre_cmd) pre_cmd=$val ;;
+      tar_arg) tar_arg=$val ;;
     esac
     log 4 "$key=$val"
   done < "$targetFile"
@@ -129,13 +137,32 @@ mysqlBackup() {
                    --port=$targetPort"
 
   dbList=($include)
-  log 3 "target databases are: $(echo "${dbList[@]}" | tr '\n' ' ')"
+  log 3 "target databases are: $include"
 
   mysqldump_args="$mysqldumpArgs $commonMysqlArgs $v"
   for db in "${dbList[@]}"; do
     log 3 "starting backup process for $db"
     backupDB "$db"
   done
+}
+
+filesBackup() {
+  log 3 "starting backup process for $serverName"
+  log 3 "target files/directories are: $include"
+  dumpFile=${serverName}.tar
+  
+  $pre_cmd tar $tar_arg $v -c $include > "$dumpFile" \
+    || err "error creating files backup for $serverName"
+
+  log 3 "compressing files backup $serverName"
+  $zipper "$dumpFile" > "${dumpFile}.$zipperExt" \
+    || err "error compressing backup file for $serverName"
+
+  rm $v "$dumpFile"
+
+  log 3 "creating checksum for $serverName"
+  $hasher "${dumpFile}.$zipperExt" > "${dumpFile}.${zipperExt}.$hasherExt" \
+    || err "error creating checksum for $serverName"
 }
 
 getDestFile() {
@@ -163,7 +190,7 @@ main() {
   log 3 "destination directory for backups is $destDir"
 
   for serverFile in $serverListDir/*; do
-    serverName=${serverFile##*/}
+    serverName=${serverFile##*/} # the server name is the file's name
     log 3 "[BACKUP START: $serverName]"
     
     parseServerFile "$serverFile"
@@ -174,12 +201,13 @@ main() {
     cd "$workdir" \
       || err "$workdir can't be accessed"
 
-    #TODO: add case for other backup types eg. directories, other dbms's, etc.
-    case "$targetType" in
-      mysql) mysqlBackup ;;
-    esac
-
     getDestFile
+
+    case $targetType in
+      mysql) (mysqlBackup) ;;
+      files) (filesBackup) ;;
+      *) (err "unrecognized backup type: '$targetType'") ;;
+    esac || { log 2 "[BACKUP FAIL: $serverName]"; continue; }
 
     tar $v -c ./* > "$destFile" \
       || err "error creating tar file $destFile"
@@ -193,4 +221,4 @@ main() {
   log 3 "[BACKUPS DONE]"
 }
 
-main >> "${LOG:-/dev/stdout}" 2>> "${LOG:-/dev/stderr}"
+main &>> "${LOG:-/dev/stderr}"
