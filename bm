@@ -67,7 +67,7 @@ backupDB() {
   local dumpFile_h="${dumpFile_z}.$hasherExt"
 
   log 3 "dumping database: $dbName"
-  $pre_cmd mysqldump $mysqldumpArgs "$dbName" > "$dumpFile" \
+  $pre_cmd $dbDump $dbDumpArgs "$dbName" > "$dumpFile" \
     || err "error creating database backup $dumpFile"
 
   log 3 "compressing database dump: $dbName"
@@ -94,7 +94,7 @@ log() {
     4) prelog='[DBUG]' ;;
     *) err "invalid log level: $lvl" ;;
   esac
-  echo "$prelog $timestamp $msg" >> /dev/stderr
+  echo "$prelog $timestamp ${serverName:+[$serverName] }$msg" >> /dev/stderr
 }
 
 err() {
@@ -125,21 +125,22 @@ parseServerFile() {
 }
 
 mysqlBackup() {
-  mysqldumpArgs="--opt
-                 --comments=0
-                 --compress
-                 --hex-blob
-                 --max-allowed-packet=1G
-                 --no-autocommit
-                 --user=$targetUser
-                 --password=$targetPass
-                 --host=$targetHost
-                 --port=$targetPort
-                 $v"
+  dbDumpArgs="--opt
+              --comments=0
+              --compress
+              --hex-blob
+              --max-allowed-packet=1G
+              --no-autocommit
+              --user=$targetUser
+              --password=$targetPass
+              --host=$targetHost
+              --port=$targetPort
+              $v"
 
   dbList=($include)
   log 3 "target databases are: $include"
 
+  dbDump=mysqldump
   for db in "${dbList[@]}"; do
     log 3 "starting backup process for $db"
     backupDB "$db"
@@ -147,24 +148,24 @@ mysqlBackup() {
 }
 
 filesBackup() {
-  log 3 "starting backup process for $serverName"
+  log 3 "starting backup process"
   log 3 "target files/directories are: $include"
   local dumpFile=${serverName}.tar
   local dumpFile_z=${dumpFile}.$zipperExt
   local dumpFile_h=${dumpFile_z}.$hasherExt
   
   $pre_cmd tar $tar_arg $v -c $include > "$dumpFile" \
-    || err "error creating files backup for $serverName"
+    || err "error creating tar backup"
 
-  log 3 "compressing files backup $serverName"
+  log 3 "compressing backup"
   $zipper "$dumpFile" > "$dumpFile_z" \
-    || err "error compressing backup file for $serverName"
+    || err "error compressing backup file"
 
   rm $v "$dumpFile"
 
-  log 3 "creating checksum for $serverName"
+  log 3 "creating $hasherExt checksum"
   $hasher "$dumpFile_z" > "$dumpFile_h" \
-    || err "error creating checksum for $serverName"
+    || err "error creating checksum"
 }
 
 getDestFile() {
@@ -193,24 +194,24 @@ main() {
 
   for serverFile in $serverListDir/*; do
     serverName=${serverFile##*/} # the server name is the file's name
-    log 3 "[BACKUP START: $serverName]"
+    log 3 "[BACKUP START]"
     
     parseServerFile "$serverFile"
-    log 3 "parsed config for server: $serverName"
+    log 3 "parsed config for server"
 
     workdir=$(mktemp -d)
-    log 4 "workspace for server $serverName is $workdir"
+    log 4 "workspace for server backup is $workdir"
     cd "$workdir" \
       || err "$workdir can't be accessed"
 
     destFile=$(getDestFile)
-    log 3 "storing backups for $serverName in file: $destFile"
+    log 3 "storing backups in file: $destFile"
 
     case $targetType in
       mysql) (mysqlBackup) ;;
       files) (filesBackup) ;;
       *) (err "unrecognized backup type: '$targetType'") ;;
-    esac || { log 2 "[BACKUP FAIL: $serverName]"; continue; }
+    esac || { log 2 "[BACKUP FAIL]"; continue; }
 
     tar $v -c ./* > "$destFile" \
       || err "error creating tar file $destFile"
@@ -219,7 +220,8 @@ main() {
     cd - > /dev/null
     rm $v -rf "$workdir"
 
-    log 3 "[BACKUP DONE: $serverName]"
+    log 3 "[BACKUP DONE]"
+    unset serverName
   done
   log 3 "[BACKUPS DONE]"; echo
 }
