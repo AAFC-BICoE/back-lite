@@ -4,70 +4,8 @@
 # checksums in a tar file, and store in central location,
 # organized by date
 
-config() {
-  ###########################################################
-  ###################### CONFIGURATION ######################
-  ###########################################################
-  # This method must set the following variables:
-  # * destRoot:
-  #       The root directory for backups to be stored
-  # * serverListFile:
-  #       The path to the file which lists the target servers.
-  #       The file is in the form "number.key value" (note
-  #       the space between key and value).  The number
-  #       indicates the server.  Lines beginning with '#' in
-  #       the serverListFile are ignored.  Possible keys are:
-  #         name:     Name to identify the server in logs, as
-  #                   well as in the name of the file for the
-  #                   backups (optional)
-  #         host:     Hostname of the mysql server
-  #         port:     Port on which to connect to the mysql
-  #                   server
-  #         user:     Username to connect to the mysql server
-  #         pass:     Password for the mysql server (optional)
-  #         preMysql: Anything put here will be inserted in the
-  #                   same line as the mysql and mysqldump
-  #                   commands.  This may be used to send the
-  #                   commands over ssh or some other shell
-  #                   (optional)
-  #         include:  A regular expression which matches
-  #                   the databases on the server to be
-  #                   included. (optional)
-  # * logLevel:
-  #       Integer from 1-4 which defines the verbosity
-  #       of the logging. Each level implies those below it.
-  #       Logging levels are:
-  #         1 [ERROR]: only log fatal errors
-  #         2  [WARN]: log warnings which may be recovered
-  #         3  [INFO]: log information about the main stages
-  #                    of the program's execution
-  #         4 [DEBUG]: log as much information about the
-  #                    execution and state as possible
-  # * mysqldump_args:
-  #       Arguments supplied to the mysqldump command
-  # * zipper:
-  #       Compression tool used for backups.  Must be set
-  #       to take input from stdin and output to stdout
-  # * zipperExt:
-  #       The filename extension associated with files
-  #       compressed with $zipper
-  # * hasher:
-  #       Hashing tool used on database backups.  Must take a
-  #       single file as an argument and output to stdout
-  # * hasherExt:
-  #       The filename extension associated with the hashing
-  #       algorithm used by $hasher
-  ###########################################################
-
-  destRoot="$HOME/backups"
-  serverListDir="$HOME/server_list"
-  logLevel=3
-  zipper="bzip2 -c"
-  zipperExt="bz2"
-
-  hasher="md5sum"
-  hasherExt="md5"
-}
+CONFIG=./config
+LOG=
 
 verifyConfig() {
   local readonly msgPrefix="config validation error:"
@@ -110,7 +48,7 @@ verifyConfig() {
 }
 
 init() {
-  config
+  source $CONFIG
   verifyConfig
   [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
 
@@ -148,23 +86,12 @@ log() {
     4) prelog='[DBUG]' ;;
     *) err "invalid log level: $lvl" ;;
   esac
-  echo "$prelog $timestamp $msg" > /dev/stderr
+  echo "$prelog $timestamp $msg" >> /dev/stderr
 }
 
 err() {
   log 1 "$1"
   exit 1
-}
-
-getDBList() {
-  log 4 "getting database list for server $serverName"
-  dbList="$(echo show databases | $pre_cmd mysql $v $commonMysqlArgs -BN)" \
-    || err "error connecting to server $serverName"
-
-  for line in $dbList; do
-    [[ $line =~ $include ]] \
-      && echo "$line"
-  done
 }
 
 parseServerFile() {
@@ -201,11 +128,11 @@ mysqlBackup() {
                    --host=$targetHost
                    --port=$targetPort"
 
-  dbList="$(getDBList)"
-  log 3 "target databases are: $(echo "$dbList" | tr '\n' ' ')"
+  dbList=($include)
+  log 3 "target databases are: $(echo "${dbList[@]}" | tr '\n' ' ')"
 
   mysqldump_args="$mysqldumpArgs $commonMysqlArgs $v"
-  for db in $dbList; do
+  for db in "${dbList[@]}"; do
     log 3 "starting backup process for $db"
     backupDB "$db"
   done
@@ -266,4 +193,4 @@ main() {
   log 3 "[BACKUPS DONE]"
 }
 
-main
+main >> "${LOG:-/dev/stdout}" 2>> "${LOG:-/dev/stderr}"
