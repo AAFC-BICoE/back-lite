@@ -8,14 +8,13 @@ Getting Started
 ---------------
 These steps should allow for a quick start:
 
-  - Set up configuration (see Configuration)
+  - Set up configuration (see *Configuration*)
   - Edit the beginning of the script: 
     ```bash
     CONFIG=/absolute/path/to/config
     LOG=/absolute/path/to/log
     ```
-  - Create some target files in the `serverListDir`
-    that was described in the configuration file
+  - Create some target files in `serverListDir` (see *Target Files*)
   - Run the script, either directly or with a periodic 
     job scheduler such as `cron`
 
@@ -37,10 +36,13 @@ variables:
  defaultMysqlArgs | Default arguments for `mysqldump`
  defaultPsqlArgs  | Default arguments for `pg_dump`
 
+An example config file is provided for a quick start, it only 
+requires changing `destRoot` and `serverListDir`
+
 Target Files
 ------------
 In the directory set as `serverListDir`, there need to be
-correctly formatted files.  Each file is one *target*.  When the
+correctly formatted files.  Each file is a *target*.  When the
 script is run, it iterates over the target files and generates
 a backup for each, using them as configuration.  Each line of a 
 target file is a `key = value` style assignment.  The following 
@@ -65,6 +67,7 @@ is used for logging, as well as for the name of the backup files
 
 Example target file, backs up 3 local mysql databases:
 ```
+# myDatabase
 type    = mysql
 host    = 127.0.0.1
 port    = 3306
@@ -95,3 +98,23 @@ The backups within each of these folders are named for the target type,
 the name of the target, and the date of the backup in the form 
 (year\_month\_day).  The backups are `tar` archives, and contain the 
 compressed backups, as well as corresponding checksum files.
+
+Example directory structure:
+```
+destRoot/
+└─ 2018/
+   ├─ 01/
+   │  ├─ mysql_backup_myDatabase_18_01_15.tar
+   │  └─ mysql_backup_myDatabase_18_01_30.tar
+   └─ 02/
+      └─ mysql_backup_myDatabase_18_02_15.tar
+```
+Contents of `mysql_backup_myDatabase_18_01_15.tar`:
+```
+./employees.sql.bz2
+./employees.sql.bz2.md5
+./products.sql.bz2
+./products.sql.bz2.md5
+./sales.sql.bz2
+./sales.sql.bz2.md5
+```
