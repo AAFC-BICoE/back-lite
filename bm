@@ -48,7 +48,8 @@ verifyConfig() {
 }
 
 init() {
-  source $CONFIG
+  source $CONFIG \
+    || logLevel=4 err "config file $CONFIG not found"
   verifyConfig
   [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
 
@@ -67,7 +68,7 @@ backupDB() {
   local dumpFile_h="${dumpFile_z}.$hasherExt"
 
   log 3 "dumping database: $dbName"
-  $pre_cmd $dbDump $dbDumpArgs "$dbName" > "$dumpFile" \
+  $preCmnd $dbDump $dbDumpArgs "$dbName" > "$dumpFile" \
     || err "error creating database backup $dumpFile"
 
   log 3 "compressing database dump: $dbName"
@@ -117,7 +118,7 @@ parseServerFile() {
       pass) targetPass=$val ;;
       port) targetPort=$val ;;
       include) include=$val ;;
-      pre_cmd) pre_cmd=$val ;;
+      preCmnd) preCmnd=$val ;;
       args) targetArgs=$val ;;
     esac
     log 4 "$key=$val"
@@ -131,7 +132,7 @@ filesBackup() {
   local dumpFile_z=${dumpFile}.$zipperExt
   local dumpFile_h=${dumpFile_z}.$hasherExt
 
-  $pre_cmd tar $targetArgs $v -c $include > "$dumpFile" \
+  $preCmnd tar $targetArgs $v -c $include > "$dumpFile" \
     || err "error creating tar backup"
 
   log 3 "compressing backup"
@@ -227,7 +228,7 @@ main() {
 
     log 3 "[BACKUP DONE]"
     unset targetType targetHost targetPort targetUser \
-          targetArgs targetPass serverName include pre_cmd
+          targetArgs targetPass serverName include preCmnd
   done
   log 3 "[BACKUPS DONE]"; echo
 }
