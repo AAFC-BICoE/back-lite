@@ -196,6 +196,7 @@ main() {
 
   destDir=$destRoot/$(date +%Y)/$(date +%m)
   mkdir $v -p "$destDir" || err "couldn't access backups directory"
+
   log 3 "destination directory for backups is $destDir"
 
   for serverFile in $serverListDir/*; do
@@ -221,6 +222,9 @@ main() {
 
     tar $v -c ./* > "$destFile" \
       || err "error creating tar file $destFile"
+
+    chmod $v 600 "$destFile" \
+      || err "error setting permissions on $destFile"
 
     log 4 "deleting temporary workspace: $workdir"
     cd - > /dev/null
