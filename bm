@@ -118,19 +118,14 @@ parseServerFile() {
       port) targetPort=$val ;;
       include) include=$val ;;
       pre_cmd) pre_cmd=$val ;;
-      tar_arg) tar_arg=$val ;;
+      args) targetArgs=$val ;;
     esac
     log 4 "$key=$val"
   done < "$targetFile"
 }
 
 mysqlBackup() {
-  dbDumpArgs="--opt
-              --comments=0
-              --compress
-              --hex-blob
-              --max-allowed-packet=1G
-              --no-autocommit
+  dbDumpArgs="${targetArgs:-$defaultMysqlArgs}
               --user=$targetUser
               --password=$targetPass
               --host=$targetHost
@@ -153,8 +148,8 @@ filesBackup() {
   local dumpFile=${serverName}.tar
   local dumpFile_z=${dumpFile}.$zipperExt
   local dumpFile_h=${dumpFile_z}.$hasherExt
-  
-  $pre_cmd tar $tar_arg $v -c $include > "$dumpFile" \
+
+  $pre_cmd tar $targetArgs $v -c $include > "$dumpFile" \
     || err "error creating tar backup"
 
   log 3 "compressing backup"
@@ -180,7 +175,6 @@ getDestFile() {
       log 4 "trying destination file name: $destFile"
     done
   fi
-
   echo "$destFile"
 }
 
@@ -221,7 +215,8 @@ main() {
     rm $v -rf "$workdir"
 
     log 3 "[BACKUP DONE]"
-    unset serverName
+    unset targetType targetHost targetPort targetUser \
+          targetArgs targetPass serverName include pre_cmd
   done
   log 3 "[BACKUPS DONE]"; echo
 }

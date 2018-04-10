@@ -60,3 +60,10 @@ zipperExt="bz2"
 
 hasher="md5sum"
 hasherExt="md5"
+
+defaultMysqlArgs="--opt
+                  --comments=0
+                  --compress
+                  --hex-blob
+                  --max-allowed-packet=1G
+                  --no-autocommit"
