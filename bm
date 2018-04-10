@@ -124,24 +124,6 @@ parseServerFile() {
   done < "$targetFile"
 }
 
-mysqlBackup() {
-  dbDumpArgs="${targetArgs:-$defaultMysqlArgs}
-              --user=$targetUser
-              --password=$targetPass
-              --host=$targetHost
-              --port=$targetPort
-              $v"
-
-  dbList=($include)
-  log 3 "target databases are: $include"
-
-  dbDump=mysqldump
-  for db in "${dbList[@]}"; do
-    log 3 "starting backup process for $db"
-    backupDB "$db"
-  done
-}
-
 filesBackup() {
   log 3 "starting backup process"
   log 3 "target files/directories are: $include"
@@ -163,17 +145,29 @@ filesBackup() {
     || err "error creating checksum"
 }
 
-psqlBackup() {
-  dbDumpArgs="${targetArgs:-$defaultPsqlArgs}
-              --host=$targetHost
+sqlBackup() {
+  dbDumpArgs="--host=$targetHost
               --port=$targetPort
-              --username=$targetUser
               $v"
+  case $targetType in
+    mysql)
+      dbDumpArgs="${targetArgs:-$defaultMysqlArgs}
+                  --user=$targetUser
+                  --password=$targetPass
+                  $dbDumpArgs"
+      dbDump="mysqldump"
+      ;;
+    psql)
+      dbDumpArgs="${targetArgs:-$defaultPsqlArgs}
+                  --username=$targetUser
+                  $dbDumpArgs"
+      dbDump="pg_dump"
+      ;;
+  esac
 
   dbList=($include)
   log 3 "target databases are: $include"
 
-  dbDump=pg_dump
   for db in "${dbList[@]}"; do
     log 3 "starting backup process for $db"
     backupDB "$db"
@@ -219,9 +213,8 @@ main() {
     log 3 "storing backups in file: $destFile"
 
     case $targetType in
-      mysql) (mysqlBackup) ;;
-      files) (filesBackup) ;;
-      psql)  (psqlBackup)  ;;
+      mysql|psql) (sqlBackup)   ;;
+      files)      (filesBackup) ;;
       *) (err "unrecognized backup type: '$targetType'") ;;
     esac || { log 2 "[BACKUP FAIL]"; continue; }
 
