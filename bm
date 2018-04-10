@@ -10,37 +10,37 @@ LOG=
 verifyConfig() {
   local readonly msgPrefix="config validation error:"
 
-  [ $logLevel -le 4 ] && [ $logLevel -ge 1 ] \
+  [[ $logLevel -le 4 ]] && [[ $logLevel -ge 1 ]] \
     || logLevel=4 err "log level not in [1-4]"
 
-  [ -n "$destRoot" ] \
+  [[ -n $destRoot ]] \
     || err "$msgPrefix \$destRoot not set"
 
-  [ -d "$destRoot" ] \
+  [[ -d $destRoot ]] \
     || err "$msgPrefix $destRoot is not a directory"
 
-  [ -w "$destRoot" ] \
+  [[ -w $destRoot ]] \
     || err "$msgPrefix $destroot is not writable"
 
-  [ -n "$serverListDir" ] \
+  [[ -n $serverListDir ]] \
     || err "$msgPrefix \$serverListDir not set"
 
-  [ -d "$serverListDir" ] \
+  [[ -d $serverListDir ]] \
     || err "$msgPrefix $serverListDir is not a directory"
 
-  [ -n "$zipper" ] \
+  [[ -n $zipper ]] \
     || err "$msgPrefix \$zipper not set"
 
-  [ -n "$zipperExt" ] \
+  [[ -n $zipperExt ]] \
     || err "$msgPrefix \$zipperExt not set"
 
   command -v "${zipper%% *}" &> /dev/null \
     || err "$msgPrefix command '$zipper' not found"
 
-  [ -n "$hasher" ] \
+  [[ -n $hasher ]] \
     || err "$msgPrefix \$hasher not set"
 
-  [ -n "$hasherExt" ] \
+  [[ -n $hasherExt ]] \
     || err "$msgPrefix \$hasherExt not set"
 
   command -v "${hasher%% *}" &> /dev/null \
@@ -49,7 +49,7 @@ verifyConfig() {
 
 init() {
   source $CONFIG \
-    || logLevel=4 err "config file $CONFIG not found"
+    || logLevel=4 err "error loading config file $CONFIG"
   verifyConfig
   [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
 
@@ -180,8 +180,8 @@ getDestFile() {
   if [[ -f $destFile ]]; then
     log 2 "destination file $destFile already exists"
     local tag=0
-    initialName="$destFile"
-    while [ -f "$destFile" ]; do
+    local initialName="$destFile"
+    while [[ -f $destFile ]]; do
       tag=$(( tag + 1 ))
       destFile="${initialName%.tar}-${tag}.tar"
       log 4 "trying destination file name: $destFile"
