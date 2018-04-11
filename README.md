@@ -8,12 +8,12 @@ Getting Started
 ---------------
 These steps should allow for a quick start:
 
-  - Set up configuration (see *Configuration*)
   - Edit the beginning of the script: 
     ```bash
     CONFIG=/absolute/path/to/config
     LOG=/absolute/path/to/log
     ```
+  - Edit the config file as necessary.  Some sane defaults are provided
   - Create some target files in `serverListDir` (see *Target Files*)
   - Run the script, either directly or with a periodic 
     job scheduler such as `cron`
@@ -35,6 +35,7 @@ variables:
  hasherExt        | File extension associated with `$hasher`
  defaultMysqlArgs | Default arguments for `mysqldump`
  defaultPsqlArgs  | Default arguments for `pg_dump`
+ defaultTarArgs   | Default arguments for `tar`
 
 An example config file is provided for a quick start, it only 
 requires changing `destRoot` and `serverListDir`
