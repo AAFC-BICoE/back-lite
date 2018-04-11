@@ -16,7 +16,7 @@ verifyConfig() {
   [[ -n $destRoot ]] \
     || err "$msgPrefix \$destRoot not set"
 
-  [[ -d $destRoot ]] \
+  mkdir -p "$destRoot" \
     || err "$msgPrefix $destRoot is not a directory"
 
   [[ -w $destRoot ]] \
