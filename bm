@@ -62,22 +62,28 @@ init() {
 }
 
 backupDB() {
-  local dbName="$1"
-  local dumpFile="${dbName}.sql"
-  local dumpFile_z="${dumpFile}.$zipperExt"
-  local dumpFile_h="${dumpFile_z}.$hasherExt"
+  local dbName=$1
+  local dumpFile=${dbName}.sql
 
-  log 3 "dumping database: $dbName"
+  log 3 "dumping database: $dbName > $dumpFile"
   $preCmnd $dbDump $dbDumpArgs "$dbName" > "$dumpFile" \
     || err "error creating database backup $dumpFile"
 
-  log 3 "compressing database dump: $dbName"
+  zipAndHashDump "$dumpFile"
+}
+
+zipAndHashDump() {
+  local dumpFile=$1
+  local dumpFile_z=${dumpFile}.$zipperExt
+  local dumpFile_h=${dumpFile_z}.$hasherExt
+
+  log 3 "compressing dump: $dumpFile > $dumpFile_z"
   $zipper "$dumpFile" > "$dumpFile_z" \
     || err "error creating compressed dump $dumpFile_z"
 
   rm $v "$dumpFile"
 
-  log 3 "creating checksum of database backup: $dbName"
+  log 3 "creating $hasherExt checksum: $dumpFile_z > $dumpFile_h"
   $hasher "$dumpFile_z" > "$dumpFile_h" \
     || err "error creating checksum $dumpFile_h"
 }
@@ -126,24 +132,13 @@ parseServerFile() {
 }
 
 filesBackup() {
-  log 3 "starting backup process"
-  log 3 "target files/directories are: $include"
   local dumpFile=${serverName}.tar
-  local dumpFile_z=${dumpFile}.$zipperExt
-  local dumpFile_h=${dumpFile_z}.$hasherExt
 
+  log 3 "creating files backup: ($include) > $dumpFile"
   $preCmnd tar $targetArgs $v -c $include > "$dumpFile" \
     || err "error creating tar backup"
 
-  log 3 "compressing backup"
-  $zipper "$dumpFile" > "$dumpFile_z" \
-    || err "error compressing backup file"
-
-  rm $v "$dumpFile"
-
-  log 3 "creating $hasherExt checksum"
-  $hasher "$dumpFile_z" > "$dumpFile_h" \
-    || err "error creating checksum"
+  zipAndHashDump "$dumpFile"
 }
 
 sqlBackup() {
