@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #
-# Backup local & remote mysql databases, store backups and
-# checksums in a tar file, and store in central location,
-# organized by date
+# Backup local & remote data, store backups and checksums in a 
+# tar file, and store in central location, organized by date
 
 CONFIG=./config
 LOG=
