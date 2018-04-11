@@ -7,6 +7,20 @@
 CONFIG=./config
 LOG=
 
+init() {
+  source $CONFIG \
+    || logLevel=4 err "error loading config file $CONFIG"
+  verifyConfig
+  [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
+
+  log 4 "destRoot=$destRoot"
+  log 4 "serverListDir=$serverListDir"
+  log 4 "zipper=$zipper"
+  log 4 "zipperExt=$zipperExt"
+  log 4 "hasher=$hasher"
+  log 4 "hasherExt=$hasherExt"
+}
+
 verifyConfig() {
   local readonly msgPrefix="config validation error:"
 
@@ -45,47 +59,6 @@ verifyConfig() {
 
   command -v "${hasher%% *}" &> /dev/null \
     || err "$msgPrefix command '$hasher' not found"
-}
-
-init() {
-  source $CONFIG \
-    || logLevel=4 err "error loading config file $CONFIG"
-  verifyConfig
-  [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
-
-  log 4 "destRoot=$destRoot"
-  log 4 "serverListDir=$serverListDir"
-  log 4 "zipper=$zipper"
-  log 4 "zipperExt=$zipperExt"
-  log 4 "hasher=$hasher"
-  log 4 "hasherExt=$hasherExt"
-}
-
-backupDB() {
-  local dbName=$1
-  local dumpFile=${dbName}.sql
-
-  log 3 "dumping database: $dbName > $dumpFile"
-  $preCmnd $dbDump $dbDumpArgs "$dbName" > "$dumpFile" \
-    || err "error creating database backup $dumpFile"
-
-  zipAndHashDump "$dumpFile"
-}
-
-zipAndHashDump() {
-  local dumpFile=$1
-  local dumpFile_z=${dumpFile}.$zipperExt
-  local dumpFile_h=${dumpFile_z}.$hasherExt
-
-  log 3 "compressing dump: $dumpFile > $dumpFile_z"
-  $zipper "$dumpFile" > "$dumpFile_z" \
-    || err "error creating compressed dump $dumpFile_z"
-
-  rm $v "$dumpFile"
-
-  log 3 "creating $hasherExt checksum: $dumpFile_z > $dumpFile_h"
-  $hasher "$dumpFile_z" > "$dumpFile_h" \
-    || err "error creating checksum $dumpFile_h"
 }
 
 log() {
@@ -168,6 +141,33 @@ sqlBackup() {
     log 3 "starting backup process for $db"
     backupDB "$db"
   done
+}
+
+backupDB() {
+  local dbName=$1
+  local dumpFile=${dbName}.sql
+
+  log 3 "dumping database: $dbName > $dumpFile"
+  $preCmnd $dbDump $dbDumpArgs "$dbName" > "$dumpFile" \
+    || err "error creating database backup $dumpFile"
+
+  zipAndHashDump "$dumpFile"
+}
+
+zipAndHashDump() {
+  local dumpFile=$1
+  local dumpFile_z=${dumpFile}.$zipperExt
+  local dumpFile_h=${dumpFile_z}.$hasherExt
+
+  log 3 "compressing dump: $dumpFile > $dumpFile_z"
+  $zipper "$dumpFile" > "$dumpFile_z" \
+    || err "error creating compressed dump $dumpFile_z"
+
+  rm $v "$dumpFile"
+
+  log 3 "creating $hasherExt checksum: $dumpFile_z > $dumpFile_h"
+  $hasher "$dumpFile_z" > "$dumpFile_h" \
+    || err "error creating checksum $dumpFile_h"
 }
 
 getDestFile() {
