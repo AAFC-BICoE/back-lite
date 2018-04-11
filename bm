@@ -10,14 +10,10 @@ init() {
   source $CONFIG \
     || logLevel=4 err "error loading config file $CONFIG"
   verifyConfig
-  [[ $logLevel -gt 3 ]] && v="-v" # $v is to enable logging for some tools
-
-  log 4 "destRoot=$destRoot"
-  log 4 "serverListDir=$serverListDir"
-  log 4 "zipper=$zipper"
-  log 4 "zipperExt=$zipperExt"
-  log 4 "hasher=$hasher"
-  log 4 "hasherExt=$hasherExt"
+  [[ $logLevel -gt 3 ]] && { 
+    v="-v"
+    sed '/^\s*\#/d; /^\s*$/d' "$CONFIG" >> /dev/stderr
+  }
 }
 
 verifyConfig() {
