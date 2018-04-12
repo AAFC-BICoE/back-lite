@@ -1,5 +1,5 @@
-Backups System (name TBD)
-=========================
+Back-Lite
+=========
 
 Automatic backups script for local & remote databases and filesystems.
 Currently supported targets for backup are: mysql, postgresql, and files.
