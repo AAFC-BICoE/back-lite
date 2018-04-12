@@ -14,7 +14,7 @@ These steps should allow for a quick start:
     LOG="/absolute/path/to/log"
     ```
   - Edit the config file as necessary.  Some sane defaults are provided.
-  - Create some target files in `serverListDir` (see *Target Files*).
+  - Create some target files in `targetsDir` (see *Target Files*).
   - Run the script, either directly or with a periodic 
     job scheduler such as `cron`.
 
@@ -27,7 +27,7 @@ variables:
  Name               | Description
  ------------------ | -----------
  `destRoot`         | Absolute path to the backups storage directory
- `serverListDir`    | Directory where the target files are stored. See *Target Files*
+ `targetsDir`       | Directory where the target files are stored. See *Target Files*
  `logLevel`         | Integer in [1-4], see *Logging* for more information
  `zipper`           | Command used to compress backups and print to standard output
  `zipperExt`        | File extension associated with `zipper`
@@ -38,11 +38,11 @@ variables:
  `defaultTarArgs`   | Default arguments for `tar`
 
 An example config file is provided for a quick start, it only 
-requires changing `destRoot` and `serverListDir`
+requires changing `destRoot` and `targetsDir`
 
 Target Files
 ------------
-In the directory set as `serverListDir`, there need to be
+In the directory set as `targetsDir`, there need to be
 correctly formatted files.  Each file is a *target*.  When the
 script is run, it iterates over the target files and generates
 a backup for each, using them as configuration.  Each line of a 

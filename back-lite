@@ -31,11 +31,11 @@ verifyConfig() {
   [[ -w $destRoot ]] \
     || err "$msgPrefix $destroot is not writable"
 
-  [[ -n $serverListDir ]] \
-    || err "$msgPrefix \$serverListDir not set"
+  [[ -n $targetsDir ]] \
+    || err "$msgPrefix \$targetsDir not set"
 
-  [[ -d $serverListDir ]] \
-    || err "$msgPrefix $serverListDir is not a directory"
+  [[ -d $targetsDir ]] \
+    || err "$msgPrefix $targetsDir is not a directory"
 
   [[ -n $zipper ]] \
     || err "$msgPrefix \$zipper not set"
@@ -69,7 +69,7 @@ log() {
     4) prelog='[DBUG]' ;;
     *) err "invalid log level: $lvl" ;;
   esac
-  echo "$prelog $timestamp ${serverName:+[$serverName] }$msg" >> /dev/stderr
+  echo "$prelog $timestamp ${targetName:+[$targetName] }$msg" >> /dev/stderr
 }
 
 err() {
@@ -100,7 +100,7 @@ parseServerFile() {
 }
 
 filesBackup() {
-  local dumpFile=${serverName}.tar
+  local dumpFile=${targetName}.tar
 
   log 3 "creating files backup: ($include) > $dumpFile"
   $preCmnd tar $targetArgs $v -c $include > "$dumpFile" \
@@ -166,7 +166,7 @@ zipAndHashDump() {
 }
 
 getDestFile() {
-  destFile=$destDir/${targetType}_backup_${serverName}_$(date +%y_%m_%d).tar
+  destFile=$destDir/${targetType}_backup_${targetName}_$(date +%y_%m_%d).tar
   if [[ -f $destFile ]]; then
     log 2 "destination file $destFile already exists"
     local tag=0
@@ -189,15 +189,15 @@ main() {
 
   log 3 "destination directory for backups is $destDir"
 
-  for serverFile in $serverListDir/*; do
-    serverName=${serverFile##*/} # the server name is the file's name
+  for serverFile in $targetsDir/*; do
+    targetName=${serverFile##*/} # the server name is the file's name
     log 3 "[BACKUP START]"
 
     parseServerFile "$serverFile"
-    log 3 "parsed config for server"
+    log 3 "parsed config for target"
 
     workdir=$(mktemp -d)
-    log 4 "workspace for server backup is $workdir"
+    log 4 "workspace for backup is $workdir"
     cd "$workdir" \
       || err "$workdir can't be accessed"
 
@@ -222,7 +222,7 @@ main() {
 
     log 3 "[BACKUP DONE]"
     unset targetType targetHost targetPort targetUser \
-          targetArgs targetPass serverName include preCmnd
+          targetArgs targetPass targetName include preCmnd
   done
   log 3 "[BACKUPS DONE]"; echo
 }

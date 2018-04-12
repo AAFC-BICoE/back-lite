@@ -1,7 +1,7 @@
 # vim: set ft=sh:
 
 destRoot="$HOME/backups"
-serverListDir="$HOME/server_list"
+targetsDir="$HOME/server_list"
 logLevel=3
 zipper="bzip2 -c"
 zipperExt="bz2"
