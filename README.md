@@ -4,19 +4,61 @@ Back-Lite
 Automatic backups script for local & remote databases and filesystems.
 Currently supported targets for backup are: mysql, postgresql, and files.
 
+`back-lite`:
+
+  - Automates the backups process for a variety of targets
+  - Organizes backups by date
+  - Is highly configurable
+  - Has robust logging
+  - Is <200 LOC of pure `bash`
+
+Table Of Contents
+-----------------
+  - [Getting Started]
+  - [Requirements]
+  - [Configuration]
+  - [Target Files]
+  - [Logging]
+  - [Backups]
+  - [Advanced Usage]
+  - [Contributing]
+
+---
+
+[Getting Started]:  #getting-started
+[Requirements]:     #requirements
+[Configuration]:    #configuration
+[Target Files]:     #target-files
+[Logging]:          #logging
+[Backups]:          #backups
+[Advanced Usage]:   #advanced-usage
+[Contributing]:     #contibuting
+
 Getting Started
 ---------------
 These steps should allow for a quick start:
 
-  - Edit the beginning of the script: 
+  - Clone this repository.
+  - Edit the beginning of `back-lite`:
     ```bash
     CONFIG="/absolute/path/to/config"
-    LOG="/absolute/path/to/log"
+    LOG="/absolute/path/to/log" # uses standard error if omitted
     ```
-  - Edit the config file as necessary.  Some sane defaults are provided.
-  - Create some target files in `targetsDir` (see *Target Files*).
+  - Edit the configuration file as necessary.  Some sane defaults are provided.
+  - Create some [target files] in `targetsDir`.
   - Run the script, either directly or with a periodic 
     job scheduler such as `cron`.
+
+Requirements
+------------
+  - `back-lite` has only been tested in `bash` 4.3.11 on Ubuntu 14.04, 
+    but should work on any Linux system with a reasonably up-to-date `bash`.
+  - In order to create database backups, the relevant DBMS client dump tool
+    should be available. (ie. `mysqldump` for mysql backups)
+  - GNU Coreutils
+  - The `tar` archiving utility
+  - A command line compression tool which supports output to stdout (on 
+    `gzip`/`bzip2`, this is the `-c` option)
 
 Configuration
 -------------
@@ -26,9 +68,9 @@ variables:
 
  Name               | Description
  ------------------ | -----------
- `destRoot`         | Absolute path to the backups storage directory
- `targetsDir`       | Directory where the target files are stored. See *Target Files*
- `logLevel`         | Integer in [1-4], see *Logging* for more information
+ `destRoot`         | Absolute path to the [backups] storage directory
+ `targetsDir`       | Directory where the [target files] are stored.
+ `logLevel`         | Integer in [1-4]. See *[Logging]*.
  `zipper`           | Command used to compress backups and print to standard output
  `zipperExt`        | File extension associated with `zipper`
  `hasher`           | Hashing tool used to create checksums of the backups
@@ -81,7 +123,7 @@ Logging
 There are 4 logging levels. Each level implies those below.
 
  Level |  Name  | Description
-:-----:| :----: | -----------
+:-----:|:------:| -----------
   `1`  | `ERR!` | Only log errors which are fatal
   `2`  | `WARN` | Log unexpected/non-ideal state, recovery is attempted
   `3`  | `INFO` | Log information about the script's execution progress, where things are being stored
@@ -122,16 +164,16 @@ Contents of `mysql_backup_myDatabase_18_01_15.tar`:
 
 Advanced Usage
 --------------
-Many of the possible keys in *Target Files* are intended to support
+Many of the possible keys in *[Target Files]* are intended to support
 extended functionality, such as tunneling the data dumps over a 
 connection to a remote machine such as via `ssh`, providing specific 
 arguments to the data dump command, or setting up an environment 
 immidiately before the dump operation.
 
-One example requirement is to connect to a remote machine using `ssh`,
+One example use case is to connect to a remote machine using `ssh`,
 rather than connecting to the database server directly.  The value of 
-the `preCmnd` key is inserted on the same command line as the dump command
-(ie. `mysqldump`/`pg_dump`/`tar`).
+the `preCmnd` key is prepended to the same command line as the dump
+command (ie. `mysqldump`/`pg_dump`/`tar`).
 
 For example, assuming the following target:
 
@@ -149,11 +191,13 @@ preCmnd = ssh user@remote.server.net
 
 When the script handles this target, it will run a command like:
 
-`ssh user@remote.server.net mysqldump ...`
+```
+ssh user@remote.server.net mysqldump ...
+```
 
-It's important to note that for a target like this to work, the `ssh` server
-on the remote machine needs to be set up to execute the commands without any
-user interaction or password prompting.
+It's important to note that for a target like this to work, the `ssh` 
+command needs to be set up to execute the commands without any user 
+interaction or password prompting.
 
 This functionality is particularly helpful with the `files` target type.
 These targets are backed up using the `tar` tool, which takes as arguments
@@ -185,7 +229,8 @@ include = logs userFiles
 args    = -C /var/lib/myApplication
 ```
 
-*\* note that the -C argument for `tar` is to `cd` to the given directory before archiving*
+*\* note that the `tar -C` argument modifies the current working 
+directory before archiving*
 
 The target could also look like this:
 
@@ -195,3 +240,31 @@ The target could also look like this:
 include = logs userFiles
 preCmnd = cd /var/lib/myApplication &&
 ```
+
+Contibuting
+-----------
+`back-lite` was written with the goal of code being easy to read
+at a glance, (assuming the reader is familiar with bash) while 
+still being easy to modify and extend as needed.  Contributions 
+should follow the style of the existing codebase. 
+
+In particular:
+
+  - 80 columns, no exceptions
+  - 2 spaces for indentation
+  - camelCase variable/function names
+  - Prefer short-circuiting with `&&` and `||` over 
+    `if ...; then ... ; fi` blocks for small conditional commands
+  - Prefer `[[ ... ]]` over `[ ... ]` or `test ...`
+
+Some desireable areas for contributions are:
+
+  - New target types
+  - Improved configurability
+  - Better validation of user input
+  - Automated tests
+
+Contributions should be linted using [shellcheck], and new features 
+should be fully tested.
+
+[shellcheck]: https://github.com/koalaman/shellcheck
