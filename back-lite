@@ -94,6 +94,7 @@ parseServerFile() {
       include) include=$val ;;
       preCmnd) preCmnd=$val ;;
       args) targetArgs=$val ;;
+      *) log 2 "Unrecognized key '$key' in target" ;;
     esac
     log 4 "$key=$val"
   done < "$targetFile"
