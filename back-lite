@@ -168,17 +168,16 @@ zipAndHashDump() {
 
 getDestFile() {
   destFile=$destDir/${targetType}_backup_${targetName}_$(date +%y_%m_%d).tar
-  if [[ -f $destFile ]]; then
-    log 2 "destination file $destFile already exists"
-    local tag=0
-    local initialName="$destFile"
-    while [[ -f $destFile ]]; do
-      tag=$(( tag + 1 ))
-      destFile="${initialName%.tar}-${tag}.tar"
-      log 4 "trying destination file name: $destFile"
-    done
-  fi
-  echo "$destFile"
+  [[ ! -e $destFile ]] && return
+
+  log 2 "destination file $destFile already exists"
+  local tag=0
+  local initialName="$destFile"
+  while [[ -f $destFile ]]; do
+    tag=$(( tag + 1 ))
+    destFile="${initialName%.tar}-${tag}.tar"
+    log 4 "trying destination file name: $destFile"
+  done
 }
 
 main() {
@@ -202,7 +201,7 @@ main() {
     cd "$workdir" \
       || err "$workdir can't be accessed"
 
-    destFile=$(getDestFile)
+    getDestFile
     log 3 "storing backups in file: $destFile"
 
     case $targetType in
@@ -215,7 +214,7 @@ main() {
       || err "error creating tar file $destFile"
 
     chmod $v 600 "$destFile" \
-      || err "error setting permissions on $destFile"
+      || log 2 "error setting permissions on $destFile"
 
     log 4 "deleting temporary workspace: $workdir"
     cd - > /dev/null
