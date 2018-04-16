@@ -19,7 +19,7 @@ init() {
 verifyConfig() {
   local readonly msgPrefix="config validation error:"
 
-  [[ $logLevel -le 4 ]] && [[ $logLevel -ge 1 ]] \
+  [[ $logLevel -le 4 && $logLevel -ge 1 ]] \
     || logLevel=4 err "log level not in [1-4]"
 
   [[ -n $destRoot ]] \
