@@ -10,14 +10,14 @@ init() {
   source $CONFIG \
     || logLevel=4 err "error loading config file $CONFIG"
   verifyConfig
-  [[ $logLevel -gt 3 ]] && { 
-    v="-v"
-    sed '/^\s*\#/d; /^\s*$/d' "$CONFIG" >> /dev/stderr
-  }
+
+  [[ $logLevel -le 3 ]] && return 0
+  v="-v"
+  sed '/^\s*\#/d; /^\s*$/d' "$CONFIG" >> /dev/stderr
 }
 
 verifyConfig() {
-  local readonly msgPrefix="config validation error:"
+  local readonly msgPrefix="config validation error:" 
 
   [[ $logLevel -le 4 && $logLevel -ge 1 ]] \
     || logLevel=4 err "log level not in [1-4]"
@@ -59,10 +59,10 @@ verifyConfig() {
 log() {
   local readonly lvl=$1
   local readonly msg=$2
-  [[ $lvl -le $logLevel ]] || return 0
+  [[ $lvl > $logLevel ]] && return 0
 
   local readonly timestamp=$(date +'[%D] [%T]')
-  case "$lvl" in
+  case $lvl in
     1) prelog='[ERR!]' ;;
     2) prelog='[WARN]' ;;
     3) prelog='[INFO]' ;;
@@ -101,7 +101,7 @@ parseServerFile() {
 }
 
 filesBackup() {
-  local dumpFile=${targetName}.tar
+  local dumpFile=$targetName.tar
 
   log 3 "creating files backup: ($include) > $dumpFile"
   $preCmnd tar $targetArgs $v -c $include > "$dumpFile" \
@@ -141,7 +141,7 @@ sqlBackup() {
 
 backupDB() {
   local dbName=$1
-  local dumpFile=${dbName}.sql
+  local dumpFile=$dbName.sql
 
   log 3 "dumping database: $dbName > $dumpFile"
   $preCmnd $dbDump $dbDumpArgs "$dbName" > "$dumpFile" \
@@ -152,8 +152,8 @@ backupDB() {
 
 zipAndHashDump() {
   local dumpFile=$1
-  local dumpFile_z=${dumpFile}.$zipperExt
-  local dumpFile_h=${dumpFile_z}.$hasherExt
+  local dumpFile_z=$dumpFile.$zipperExt
+  local dumpFile_h=$dumpFile_z.$hasherExt
 
   log 3 "compressing dump: $dumpFile > $dumpFile_z"
   $zipper "$dumpFile" > "$dumpFile_z" \
@@ -175,7 +175,7 @@ getDestFile() {
   local initialName="$destFile"
   while [[ -f $destFile ]]; do
     tag=$(( tag + 1 ))
-    destFile="${initialName%.tar}-${tag}.tar"
+    destFile="${initialName%.tar}-$tag.tar"
     log 4 "trying destination file name: $destFile"
   done
 }
