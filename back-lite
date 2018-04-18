@@ -12,12 +12,12 @@ init() {
   verifyConfig
 
   [[ $logLevel -le 3 ]] && return 0
-  v="-v"
+  v=-v
   sed '/^\s*\#/d; /^\s*$/d' "$CONFIG" >> /dev/stderr
 }
 
 verifyConfig() {
-  local readonly msgPrefix="config validation error:" 
+  local readonly msgPrefix=config validation error:
 
   [[ $logLevel -le 4 && $logLevel -ge 1 ]] \
     || logLevel=4 err "log level not in [1-4]"
@@ -78,7 +78,7 @@ err() {
 }
 
 parseServerFile() {
-  local targetFile="$1"
+  local targetFile=$1
   while read ln; do
     local line=$(echo "$ln" | tr -s '[:blank:]')
     [[ $line == \#* ]] && continue # support comments in target files
@@ -120,13 +120,13 @@ sqlBackup() {
                   --user=$targetUser
                   --password=$targetPass
                   $dbDumpArgs"
-      dbDump="mysqldump"
+      dbDump=mysqldump
       ;;
     psql)
       dbDumpArgs="${targetArgs:-$defaultPsqlArgs}
                   --username=$targetUser
                   $dbDumpArgs"
-      dbDump="pg_dump"
+      dbDump=pg_dump
       ;;
   esac
 
@@ -152,18 +152,18 @@ backupDB() {
 
 zipAndHashDump() {
   local dumpFile=$1
-  local dumpFile_z=$dumpFile.$zipperExt
-  local dumpFile_h=$dumpFile_z.$hasherExt
+  local dumpFileZip=$dumpFile.$zipperExt
+  local dumpFileHash=$dumpFileZip.$hasherExt
 
-  log 3 "compressing dump: $dumpFile > $dumpFile_z"
-  $zipper "$dumpFile" > "$dumpFile_z" \
-    || err "error creating compressed dump $dumpFile_z"
+  log 3 "compressing dump: $dumpFile > $dumpFileZip"
+  $zipper "$dumpFile" > "$dumpFileZip" \
+    || err "error creating compressed dump $dumpFileZip"
 
   rm $v "$dumpFile"
 
-  log 3 "creating $hasherExt checksum: $dumpFile_z > $dumpFile_h"
-  $hasher "$dumpFile_z" > "$dumpFile_h" \
-    || err "error creating checksum $dumpFile_h"
+  log 3 "creating $hasherExt checksum: $dumpFileZip > $dumpFileHash"
+  $hasher "$dumpFileZip" > "$dumpFileHash" \
+    || err "error creating checksum $dumpFileHash"
 }
 
 getDestFile() {
@@ -172,10 +172,10 @@ getDestFile() {
 
   log 2 "destination file $destFile already exists"
   local tag=0
-  local initialName="$destFile"
-  while [[ -f $destFile ]]; do
+  local initialName=$destFile
+  while [[ -f $destFile ]]; do 
     tag=$(( tag + 1 ))
-    destFile="${initialName%.tar}-$tag.tar"
+    destFile=${initialName%.tar}-$tag.tar
     log 4 "trying destination file name: $destFile"
   done
 }
