@@ -174,7 +174,7 @@ getDestFile() {
   local tag=0
   local initialName=$destFile
   while [[ -f $destFile ]]; do 
-    tag=$(( tag + 1 ))
+    (( tag++ ))
     destFile=${initialName%.tar}-$tag.tar
     log 4 "trying destination file name: $destFile"
   done

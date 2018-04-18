@@ -103,9 +103,9 @@ keys are used:
  `args`    |          | Arguments provided to the dumping command. Overrides default arguments
 
 Target files support comment lines (lines beginning with `#`) and
-escaped line breaks (lines ending with `\`).  The name of a 
-target file should have a meaningful name, as it is used for logging, 
-as well as for the name of the backup files
+escaped line breaks (lines ending with `\`).  The name of a target 
+file should have a meaningful name, as it is used for logging, as 
+well as for the name of the backup files.
 
 Example target file, backs up 3 mysql databases:
 ```ini
@@ -136,10 +136,10 @@ to keep backups well-organized.  The `destRoot` contains folders
 named for the year of the containing backups.  Within each, folders 
 are created for each month.  
 
-The backups within each of these folders are named for the target type,
-the name of the target, and the date of the backup in the form 
-`year_month_day`.  The backups are `tar` archives, and contain the 
-compressed data dumps, as well as corresponding checksum files.
+The backups within each of these folders are named for the target 
+type, the name of the target, and the date of the backup in the 
+form `year_month_day`.  The backups are `tar` archives, and contain 
+the compressed data dumps, as well as corresponding checksum files.
 
 Example directory structure:
 ```
@@ -171,9 +171,9 @@ arguments to the data dump command, or setting up an environment
 immidiately before the dump operation.
 
 One example use case is to connect to a remote machine using `ssh`,
-rather than connecting to the database server directly.  The value of 
-the `preCmnd` key is prepended to the same command line as the dump
-command (ie. `mysqldump`/`pg_dump`/`tar`).
+rather than connecting to the database server directly.  The value 
+of the `preCmnd` key is prepended to the same command line as the 
+dump command (ie. `mysqldump`/`pg_dump`/`tar`).
 
 For example, assuming the following target:
 
