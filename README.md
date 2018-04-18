@@ -44,7 +44,7 @@ These steps should allow for a quick start:
     CONFIG="/absolute/path/to/config"
     LOG="/absolute/path/to/log" # uses standard error if omitted
     ```
-  - Edit the configuration file as necessary.  Some sane defaults are provided.
+  - Edit the [configuration] file as necessary.  Some sane defaults are provided.
   - Create some [target files] in `targetsDir`.
   - Run the script, either directly or with a periodic 
     job scheduler such as `cron`.
