@@ -66,18 +66,18 @@ The configuration file is a bash script which is sourced at the
 beginning of the script. The configuration should set the following
 variables:
 
- Name               | Description
- ------------------ | -----------
- `destRoot`         | Absolute path to the [backups] storage directory
- `targetsDir`       | Directory where the [target files] are stored.
- `logLevel`         | Integer in [1-4]. See *[Logging]*.
- `zipper`           | Command used to compress backups and print to standard output
- `zipperExt`        | File extension associated with `zipper`
- `hasher`           | Hashing tool used to create checksums of the backups
- `hasherExt`        | File extension associated with `hasher`
- `defaultMysqlArgs` | Default arguments for `mysqldump`
- `defaultPsqlArgs`  | Default arguments for `pg_dump`
- `defaultTarArgs`   | Default arguments for `tar`
+ Name               | Required | Description
+ ------------------ |:--------:| -----------
+ `destRoot`         |    yes   | Absolute path to the [backups] storage directory
+ `targetsDir`       |    yes   | Directory where the [target files] are stored.
+ `logLevel`         |    yes   | Integer in [1-4]. See *[Logging]*.
+ `zipper`           |    yes   | Command used to compress backups and print to standard output
+ `zipperExt`        |    yes   | File extension associated with `zipper`
+ `hasher`           |    yes   | Hashing tool used to create checksums of the backups
+ `hasherExt`        |    yes   | File extension associated with `hasher`
+ `defaultMysqlArgs` |          | Default arguments for `mysqldump`
+ `defaultPsqlArgs`  |          | Default arguments for `pg_dump`
+ `defaultTarArgs`   |          | Default arguments for `tar`
 
 An example config file is provided for a quick start, it only 
 requires changing `destRoot` and `targetsDir`
@@ -91,16 +91,16 @@ a backup for each, using them as configuration.  Each line of a
 target file is a `key = value` style assignment.  The following 
 keys are used:
 
- Key       | Description
- --------- | -----------
- `type`    | The type of backup. One of { mysql, psql, files }
- `host`    | The IP/hostname to connect to for sql database backups
- `port`    | The port on which to connect to the sql database
- `user`    | The username for the sql database connection
- `pass`    | The password of the mysql database
- `include` | mysql/psql: the databases to back up; files: the names of files
- `preCmnd` | Inserted immediately before the dumping command
- `args`    | Arguments provided to the dumping command. Overrides default arguments
+ Key       | Required | Description
+ --------- |:--------:| -----------
+ `type`    |    yes   | The type of backup. One of { mysql, psql, files }
+ `host`    |    yes   | The IP/hostname to connect to for sql database backups
+ `port`    |    yes   | The port on which to connect to the sql database
+ `user`    |    yes   | The username for the sql database connection
+ `pass`    |          | The password of the mysql database
+ `include` |    yes   | mysql/psql: the databases to back up; files: the names of files
+ `preCmnd` |          | Inserted immediately before the dumping command
+ `args`    |          | Arguments provided to the dumping command. Overrides default arguments
 
 Target files support comment lines (lines beginning with `#`) and
 escaped line breaks (lines ending with `\`).  The name of a 
