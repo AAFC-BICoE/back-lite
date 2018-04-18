@@ -124,9 +124,9 @@ There are 4 logging levels. Each level implies those below.
 
  Level |  Name  | Description
 :-----:|:------:| -----------
-  `1`  | `ERR!` | Only log errors which are fatal
+  `1`  | `ERR!` | Only log errors which are fatal, or where backup of a specific target fails
   `2`  | `WARN` | Log unexpected/non-ideal state, recovery is attempted
-  `3`  | `INFO` | Log information about the script's execution progress, where things are being stored
+  `3`  | `INFO` | Log information about the script's execution progress, where files are stored
   `4`  | `DBUG` | Maximum logging. Also enables logging for many tools used by the script
 
 Backups
