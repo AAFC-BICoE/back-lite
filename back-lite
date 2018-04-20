@@ -80,7 +80,7 @@ err() {
 parseServerFile() {
   local targetFile=$1
   while read ln; do
-    local line=$(echo "$ln" | tr -s '[:blank:]')
+    local line=$(tr -s '[:blank:]' <<< "$ln")
     [[ $line == \#* ]] && continue # support comments in target files
 
     local key=${line%% =*}
