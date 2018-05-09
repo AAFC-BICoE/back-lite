@@ -189,7 +189,7 @@ main() {
 
   log 3 "destination directory for backups is $destDir"
 
-  for serverFile in $targetsDir/*; do
+  for serverFile in $targetsDir/*; do (
     targetName=${serverFile##*/} # the server name is the file's name
     log 3 "[BACKUP START]"
 
@@ -223,7 +223,8 @@ main() {
     log 3 "[BACKUP DONE]"
     unset targetType targetHost targetPort targetUser \
           targetArgs targetPass targetName include preCmnd
-  done
+  ) & done
+  wait
   log 3 "[BACKUPS DONE]"; echo
 }
 
