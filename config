@@ -3,6 +3,8 @@
 destRoot="$HOME/backups"
 targetsDir="$HOME/server_list"
 logLevel=3
+backupPerms=640
+
 zipper="bzip2 -c"
 zipperExt="bz2"
 

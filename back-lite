@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Backup local & remote data, store backups and checksums in a 
+# Backup local & remote data, store backups and checksums in a
 # tar file, and store in central location, organized by date
 
 CONFIG=./config
@@ -12,6 +12,8 @@ init() {
   verifyConfig
 
   [[ $logLevel -le 3 ]] && return 0
+  # next 2 lines are only executed if in debug mode:
+  # enable '-v' for many tools and echo the contents of the config file
   v=-v
   sed '/^\s*\#/d; /^\s*$/d' "$CONFIG" >> /dev/stderr
 }
@@ -54,6 +56,9 @@ verifyConfig() {
 
   command -v "${hasher%% *}" &> /dev/null \
     || err "$msgPrefix command '$hasher' not found"
+
+  [[ ${jobLimit:-1} -ge 1 ]] \
+    || err "$msgPrefix "
 }
 
 log() {
@@ -80,9 +85,11 @@ err() {
 parseServerFile() {
   local targetFile=$1
   while read ln; do
+    # compress blank space in lines
     local line=$(tr -s '[:blank:]' <<< "$ln")
-    [[ $line == \#* ]] && continue # support comments in target files
-
+    # support comments in target files
+    [[ $line == \#* ]] && continue
+    # parse the target file assuming the lines are in a 'key = value' format:
     local key=${line%% =*}
     local val=${line#*= }
     case $key in
@@ -111,29 +118,28 @@ filesBackup() {
 }
 
 sqlBackup() {
-  dbDumpArgs="--host=$targetHost
-              --port=$targetPort
+  dbDumpArgs="${targetHost:+"--host=$targetHost"}
+              ${targetPort:+"--port=$targetPort"}
               $v"
   case $targetType in
     mysql)
       dbDumpArgs="${targetArgs:-$defaultMysqlArgs}
-                  --user=$targetUser
-                  --password=$targetPass
+                  ${targetUser:+"--user=$targetUser"}
+                  ${targetPass:+"--password=$targetPass"}
                   $dbDumpArgs"
       dbDump=mysqldump
       ;;
     psql)
       dbDumpArgs="${targetArgs:-$defaultPsqlArgs}
-                  --username=$targetUser
+                  ${targetUser:+"--username=$targetUser"}
                   $dbDumpArgs"
       dbDump=pg_dump
       ;;
   esac
 
-  dbList=($include)
   log 3 "target databases are: $include"
 
-  for db in "${dbList[@]}"; do
+  for db in $include; do
     log 3 "starting backup process for $db"
     backupDB "$db"
   done
@@ -173,24 +179,15 @@ getDestFile() {
   log 2 "destination file $destFile already exists"
   local tag=0
   local initialName=$destFile
-  while [[ -f $destFile ]]; do 
+  while [[ -f $destFile ]]; do
     (( tag++ ))
     destFile=${initialName%.tar}-$tag.tar
     log 4 "trying destination file name: $destFile"
   done
 }
 
-main() {
-  init
-  log 3 "[BACKUPS START]"
-
-  destDir=$destRoot/$(date +%Y)/$(date +%m)
-  mkdir $v -p "$destDir" || err "couldn't access backups directory"
-
-  log 3 "destination directory for backups is $destDir"
-
-  for serverFile in $targetsDir/*; do (
-    targetName=${serverFile##*/} # the server name is the file's name
+backupTarget() {
+    targetName=$1
     log 3 "[BACKUP START]"
 
     parseServerFile "$serverFile"
@@ -208,12 +205,12 @@ main() {
       mysql|psql) (sqlBackup)   ;;
       files)      (filesBackup) ;;
       *) (err "unrecognized backup type: '$targetType'") ;;
-    esac || { log 2 "[BACKUP FAIL]"; continue; }
+    esac || { log 2 "[BACKUP FAIL]"; return; }
 
     tar $v -c ./* > "$destFile" \
       || err "error creating tar file $destFile"
 
-    chmod $v 600 "$destFile" \
+    chmod $v "${backupPerms:-600}" "$destFile" \
       || log 2 "error setting permissions on $destFile"
 
     log 4 "deleting temporary workspace: $workdir"
@@ -223,9 +220,24 @@ main() {
     log 3 "[BACKUP DONE]"
     unset targetType targetHost targetPort targetUser \
           targetArgs targetPass targetName include preCmnd
-  ) & done
+}
+
+main() {
+  init
+  log 3 "[BACKUPS START]"
+
+  destDir=$destRoot/$(date +%Y)/$(date +%m)
+  mkdir $v -p "$destDir" || err "couldn't access backups directory"
+
+  log 3 "destination directory for backups is $destDir"
+
+  for serverFile in $targetsDir/*; do
+    [[ "$(jobs | wc -l)" -ge "${jobLimit:-1}" ]] && \
+      wait -n
+    ( backupTarget "${serverFile##*/}" ) &
+  done
   wait
   log 3 "[BACKUPS DONE]"; echo
 }
 
-main &>> "${LOG:-/dev/stderr}"
+main "$@" &>> "${LOG:-/dev/stderr}"

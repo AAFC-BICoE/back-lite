@@ -10,7 +10,6 @@ Currently supported targets for backup are: mysql, postgresql, and files.
   - Organizes backups by date
   - Is highly configurable
   - Has robust logging
-  - Is <200 LOC of pure `bash`
 
 Table Of Contents
 -----------------
@@ -32,7 +31,7 @@ Table Of Contents
 [Logging]:          #logging
 [Backups]:          #backups
 [Advanced Usage]:   #advanced-usage
-[Contributing]:     #contibuting
+[Contributing]:     ./CONTRIBUTING.md
 
 Getting Started
 ---------------
@@ -78,6 +77,8 @@ variables:
  `defaultMysqlArgs` |          | Default arguments for `mysqldump`
  `defaultPsqlArgs`  |          | Default arguments for `pg_dump`
  `defaultTarArgs`   |          | Default arguments for `tar`
+ `backupPerms`      |          | Default permissions for backup files, defaults to 600
+ `jobLimit`         |          | Maximum number of threads to spawn for backup targets
 
 An example config file is provided for a quick start, it only 
 requires changing `destRoot` and `targetsDir`
@@ -103,7 +104,7 @@ keys are used:
  `args`    |          | Arguments provided to the dumping command. Overrides default arguments
 
 Target files support comment lines (lines beginning with `#`) and
-escaped line breaks (lines ending with `\`).  The name of a target 
+escaped line breaks (lines ending with \\).  The name of a target 
 file should have a meaningful name, as it is used for logging, as 
 well as for the name of the backup files.
 
